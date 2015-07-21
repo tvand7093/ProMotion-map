@@ -1,6 +1,5 @@
 module ProMotion
   module MapScreenModule
-
     PIN_COLORS = {
       red: MKPinAnnotationColorRed,
       green: MKPinAnnotationColorGreen,
@@ -25,6 +24,41 @@ module ProMotion
 
     def check_annotation_data
       PM.logger.error "Missing #annotation_data method in MapScreen #{self.class.to_s}." unless self.respond_to?(:annotation_data)
+    end
+
+    def calculate_center
+      longitude = 0;
+      latitude = 0;
+
+      xVector = []
+      yVector = []
+
+      #calculate the sum of x and y
+      annotation_data.each do |annotation|
+        x = annotation[:coordinate].nil? ? annotation[:longitude] : annotation[:coordinate].longitude
+        y = annotation[:coordinate].nil? ? annotation[:latitude] : annotation[:coordinate].latitude
+
+        xVector.push(x.abs);
+        yVector.push(y.abs);
+
+        longitude += x
+        latitude += y
+      end
+
+      #average the x and y to get the midpoint
+      longitude /= annotation_data.length
+      latitude /= annotation_data.length
+
+      #now calculate the max distance between any two points
+      maxDist = [ xVector.max, yVector.max ].max
+
+      puts maxDist
+      #set center to the midpoint
+      return {
+        :longitude => longitude,
+        :latitude => latitude,
+        :radius => maxDist - (maxDist * 0.96)
+      }
     end
 
     def update_annotation_data
@@ -183,7 +217,10 @@ module ProMotion
     def set_up_start_position
       if self.class.respond_to?(:get_start_position) && self.class.get_start_position
         self.set_start_position self.class.get_start_position_params
+      else
+        self.set_start_position self.calculate_center
       end
+
     end
 
     def set_tap_to_add(params={})
